@@ -1,13 +1,7 @@
 package emailTDD;
 
 public class EmailVerifier
-{
-	//different states from the state machine
-	private enum States
-	{
-		ERROR, FIRST_CHARACTER, BEFORE_AT, BEFORE_AT_DOT, FIRST_CHARACTER_AFTER_AT, AFTER_AT, AFTER_AT_DOT, VALID
-	}
-	
+{	
 	//different events that can happen
 	private enum Events
 	{
@@ -20,170 +14,90 @@ public class EmailVerifier
 	final static String validCharsAfterAt = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-";
 	
 	//used to validate characters before/after the at
-	private static String validChars;
+	private String validChars;
+
+	//reference to the state machine's current state
+	private State currentState;
+	
+	//to change the state of the state machine- pass in a singleton
+	public void changeState(State newState)
+	{
+		currentState = newState;
+	}
+	
+	//set the acceptable characters before the at
+	public void useBeforeAtCharacters()
+	{
+		//set the valid characters to the group allowed before the at 
+		validChars = validCharsBeforeAt;		
+	}
+	
+	//set the acceptable characters after the at
+	public void useAfterAtCharacters()
+	{
+		//set the valid characters to the group allowed after the at
+		validChars = validCharsAfterAt;		
+	}
 	
 	/**
 	 * Used to verify that an email address is valid.
 	 * 
 	 * @param emailAddress The email address to test
-	 * @return
+	 * @return true if this is a valid email, false otherwise
 	 */
-	public static boolean verify(String emailAddress)
+	public boolean verify(String emailAddress)
 	{
 		//assume the email address is not valid
 		boolean retVal = false;
 		
-		//set the valid characters for 
-		validChars = validCharsBeforeAt;
+		//set the valid characters for before the at 
+		useBeforeAtCharacters();
 		
 		//start in the first character state
-		States currentState = States.FIRST_CHARACTER;
+		changeState(FirstCharacter.getInstance());
 
 		try
 		{			
 			//go through all of the characters in the email address
 			for(int i = 0;i < emailAddress.length();i++)
 			{
-				
 				//get an event from the current character
 				Events currentEvent = getEvent(emailAddress.charAt(i));
 
-				//check our current state
-				if(currentState == States.FIRST_CHARACTER)
+				//check the event type and send the event to the current state
+				if(currentEvent == Events.LETTER)
 				{
-					if(currentEvent == Events.LETTER)
-					{
-						currentState = States.BEFORE_AT;
-					} 
-					else if(currentEvent == Events.DOT)
-					{
-						currentState = States.ERROR;
-						break;
-					}
-					else if(currentEvent == Events.AT)
-					{
-						currentState = States.ERROR;
-						break;
-					}
+					currentState.letter(this);
+				} 
+				else if(currentEvent == Events.DOT)
+				{
+					currentState.dot(this);
 				}
-				else if(currentState == States.BEFORE_AT)
+				else if(currentEvent == Events.AT)
 				{
-					if(currentEvent == Events.LETTER)
-					{
-						//do nothing
-					} 
-					else if(currentEvent == Events.DOT)
-					{
-						currentState = States.BEFORE_AT_DOT;
-					}
-					else if(currentEvent == Events.AT)
-					{
-						currentState = States.FIRST_CHARACTER_AFTER_AT;
-						validChars = validCharsAfterAt;
-					}				
+					currentState.at(this);
 				}
-				else if(currentState == States.BEFORE_AT_DOT)
+
+				//if we ever get to the error state stop handling events
+				if(currentState == Error.getInstance())
 				{
-					if(currentEvent == Events.LETTER)
-					{
-						currentState = States.BEFORE_AT;
-					} 
-					else if(currentEvent == Events.DOT)
-					{
-						currentState = States.ERROR;
-						break;
-					}
-					else if(currentEvent == Events.AT)
-					{
-						currentState = States.ERROR;
-						break;
-					}
-				}
-				else if(currentState == States.FIRST_CHARACTER_AFTER_AT)
-				{
-					if(currentEvent == Events.LETTER)
-					{
-						currentState = States.AFTER_AT;					
-					} 
-					else if(currentEvent == Events.DOT)
-					{
-						currentState = States.ERROR;
-						break;
-					}
-					else if(currentEvent == Events.AT)
-					{
-						currentState = States.ERROR;
-						break;
-					}
-				}
-				else if(currentState == States.AFTER_AT)
-				{
-					if(currentEvent == Events.LETTER)
-					{
-						//do nothing
-					} 
-					else if(currentEvent == Events.DOT)
-					{
-						currentState = States.AFTER_AT_DOT;
-					}
-					else if(currentEvent == Events.AT)
-					{
-						currentState = States.ERROR;
-						break;
-					}
-				}
-				else if(currentState == States.AFTER_AT_DOT)
-				{
-					if(currentEvent == Events.LETTER)
-					{
-						currentState = States.VALID;
-					} 
-					else if(currentEvent == Events.DOT)
-					{
-						currentState = States.ERROR;
-						break;
-					}
-					else if(currentEvent == Events.AT)
-					{
-						currentState = States.ERROR;
-						break;
-					}
-				}
-				else if(currentState == States.VALID)
-				{
-					if(currentEvent == Events.LETTER)
-					{
-						//do nothing
-					} 
-					else if(currentEvent == Events.DOT)
-					{
-						currentState = States.AFTER_AT_DOT;
-					}
-					else if(currentEvent == Events.AT)
-					{
-						currentState = States.ERROR;
-						break;
-					}
-				}
-				else 
-				{
-					currentState = States.ERROR;
 					break;
 				}
 			}
 			
+			//after going through all of the characters in the email address
 			//verify that the ending state is the valid state
-			retVal = currentState == States.VALID;
+			retVal = currentState == Valid.getInstance();
 		}
 		catch(Exception ex)
 		{
-			//do nothing, the retVal defaults to false
+			//do nothing on a bad event, the retVal defaults to false
 		}
 		
 		return retVal;
 	}	
 	
-	private static Events getEvent(char character) throws Exception
+	private Events getEvent(char character) throws Exception
 	{
 		Events retVal;
 		
